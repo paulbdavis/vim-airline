@@ -66,7 +66,7 @@ endfunction
 function! airline#update_statusline()
   for nr in filter(range(1, winnr('$')), 'v:val != winnr()')
     call setwinvar(nr, 'airline_active', 0)
-    let context = { 'winnr': nr, 'active': 0 }
+    let context = { 'winnr': nr, 'active': 0, 'bufnr': winbufnr(nr) }
     call s:invoke_funcrefs(context, s:inactive_funcrefs)
   endfor
 
@@ -77,7 +77,7 @@ function! airline#update_statusline()
   endfor
 
   let w:airline_active = 1
-  let context = { 'winnr': winnr(), 'active': 1 }
+  let context = { 'winnr': winnr(), 'active': 1, 'bufnr': winbufnr(winnr()) }
   call s:invoke_funcrefs(context, g:airline_statusline_funcrefs)
 endfunction
 
@@ -96,6 +96,8 @@ function! s:invoke_funcrefs(context, funcrefs)
 endfunction
 
 function! airline#statusline(winnr)
+  let context = s:contexts[a:winnr]
+
   if get(w:, 'airline_active', 1)
     let l:m = mode()
     if l:m ==# "i"
@@ -113,9 +115,18 @@ function! airline#statusline(winnr)
     let w:airline_current_mode = get(g:airline_mode_map, '__')
   endif
 
-  if g:airline_detect_modified && &modified
-    call add(l:mode, 'modified')
+  if g:airline_detect_modified
+    if &modified
+      call add(l:mode, 'modified')
+      let colors = g:airline#themes#{g:airline_theme}#palette.inactive_modified.airline_c
+    else
+      let colors = g:airline#themes#{g:airline_theme}#palette.inactive.airline_c
+    endif
+    for winnr in filter(range(1, winnr('$')), 'v:val != a:winnr && s:contexts[v:val].bufnr == context.bufnr')
+      call airline#highlighter#exec('airline_c'.(context.bufnr).'_inactive', colors)
+    endfor
   endif
+
   if g:airline_detect_paste && &paste
     call add(l:mode, 'paste')
   endif
@@ -126,6 +137,6 @@ function! airline#statusline(winnr)
     let w:airline_lastmode = mode_string
   endif
 
-  return s:contexts[a:winnr].line
+  return context.line
 endfunction
 
